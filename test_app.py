@@ -44,12 +44,25 @@ class TestMarksValidator(unittest.TestCase):
         self.assertEqual(ctx.exception.code, 400)
 
     def test_out_of_range_score_returns_400(self):
+        for score in (-1, 140):
+            with self.subTest(score=score):
+                with self.assertRaises(urllib.error.HTTPError) as ctx:
+                    api_request(
+                        "/api/records",
+                        method="POST",
+                        payload={"student": "Zain", "score": score},
+                    )
+                self.assertEqual(ctx.exception.code, 400)
+
+    def test_invalid_json_returns_400(self):
+        req = urllib.request.Request(
+            "http://127.0.0.1:8000/api/records",
+            data=b"{",
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
         with self.assertRaises(urllib.error.HTTPError) as ctx:
-            api_request(
-                "/api/records",
-                method="POST",
-                payload={"student": "Zain", "score": 140},
-            )
+            urllib.request.urlopen(req, timeout=3)
         self.assertEqual(ctx.exception.code, 400)
 
 

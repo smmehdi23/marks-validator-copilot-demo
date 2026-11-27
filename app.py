@@ -1,4 +1,5 @@
 import json
+import math
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 RECORDS = []
@@ -92,9 +93,16 @@ HTML_PAGE = """<!DOCTYPE html>
 
 
 def validate_mark(student: str, score: float) -> dict:
-    # Intentional edge-case bugs for Copilot review demo:
-    # - Doesn't strip whitespace or reject empty student names
-    # - Allows score < 0 or score > 100
+    if not isinstance(student, str):
+        raise ValueError("Student name must be a string")
+    student = student.strip()
+    if not student:
+        raise ValueError("Student name cannot be empty")
+    if isinstance(score, bool) or not isinstance(score, (int, float)):
+        raise ValueError("Score must be a number")
+    if not math.isfinite(score) or not 0 <= score <= 100:
+        raise ValueError("Score must be between 0 and 100")
+
     if score >= 80:
         grade = "A"
     elif score >= 60:
@@ -146,11 +154,15 @@ class AppHandler(BaseHTTPRequestHandler):
 
         content_length = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(content_length)
-        data = json.loads(raw_body.decode("utf-8"))
+        try:
+            data = json.loads(raw_body.decode("utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("Request body must be a JSON object")
+            record = validate_mark(data.get("student"), data.get("score"))
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as error:
+            self._send_json(400, {"error": str(error)})
+            return
 
-        student = data.get("student")
-        score = data.get("score")
-        record = validate_mark(student, score)
         self._send_json(201, record)
 
     def log_message(self, format, *args):
